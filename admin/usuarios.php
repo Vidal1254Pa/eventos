@@ -12,43 +12,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $usuario = trim($_POST['usuario'] ?? '');
         $rol = $_POST['rol'] ?? 'viewer';
         $pass = $_POST['password'] ?? '';
+        $rolesValidos = ['admin', 'registro', 'viewer'];
 
-        if ($nombre && $usuario && $pass) {
-            $hash = password_hash($pass, PASSWORD_BCRYPT);
-            $stmt = $conexion->prepare("INSERT INTO usuarios(nombre,usuario,pass_hash,rol,activo) VALUES(?,?,?,?,1)");
-            $stmt->bind_param("ssss", $nombre, $usuario, $hash, $rol);
-            $stmt->execute();
-            flash_set('ok', 'Usuario creado.');
-        } else {
-            flash_set('err', 'Complete todos los campos.');
+        if (!in_array($rol, $rolesValidos, true)) {
+            $rol = 'viewer';
         }
+
+        if ($nombre && $usuario && strlen($pass) >= 8) {
+            $hash = password_hash($pass, PASSWORD_BCRYPT);
+
+            try {
+                $stmt = $conexion->prepare('INSERT INTO usuarios(nombre, usuario, pass_hash, rol, activo) VALUES(?, ?, ?, ?, TRUE)');
+                $stmt->bind_param('ssss', $nombre, $usuario, $hash, $rol);
+                $stmt->execute();
+                flash_set('ok', 'Usuario creado.');
+            } catch (Throwable $e) {
+                flash_set('err', db_is_unique_violation($e) ? 'El usuario ya existe.' : 'No se pudo crear el usuario.');
+            }
+        } else {
+            flash_set('err', 'Complete todos los campos y use una clave de al menos 8 caracteres.');
+        }
+
         redirect('admin/usuarios.php');
     }
 
     if ($accion === 'toggle') {
-        $id = (int)($_POST['id'] ?? 0);
+        $id = (int) ($_POST['id'] ?? 0);
+        $actual = (int) ($_SESSION['user']['id'] ?? 0);
+
         if ($id > 0) {
-            $conexion->query("UPDATE usuarios SET activo = IF(activo=1,0,1) WHERE id={$id} AND id<>".(int)$_SESSION['user']['id']);
+            $stmt = $conexion->prepare('UPDATE usuarios SET activo = CASE WHEN activo THEN FALSE ELSE TRUE END WHERE id = ? AND id <> ?');
+            $stmt->bind_param('ii', $id, $actual);
+            $stmt->execute();
             flash_set('ok', 'Estado actualizado.');
         }
+
         redirect('admin/usuarios.php');
     }
 
     if ($accion === 'reset') {
-        $id = (int)($_POST['id'] ?? 0);
+        $id = (int) ($_POST['id'] ?? 0);
         $new = $_POST['newpass'] ?? '';
-        if ($id>0 && $new) {
+
+        if ($id > 0 && strlen($new) >= 8) {
             $hash = password_hash($new, PASSWORD_BCRYPT);
-            $stmt = $conexion->prepare("UPDATE usuarios SET pass_hash=? WHERE id=?");
-            $stmt->bind_param("si", $hash, $id);
+            $stmt = $conexion->prepare('UPDATE usuarios SET pass_hash = ? WHERE id = ?');
+            $stmt->bind_param('si', $hash, $id);
             $stmt->execute();
-            flash_set('ok', 'Contraseña actualizada.');
-        } else flash_set('err','Ingrese nueva contraseña.');
+            flash_set('ok', 'Contrasena actualizada.');
+        } else {
+            flash_set('err', 'Ingrese una nueva contrasena de al menos 8 caracteres.');
+        }
+
         redirect('admin/usuarios.php');
     }
 }
 
-$lista = $conexion->query("SELECT id,nombre,usuario,rol,activo,creado_en FROM usuarios ORDER BY id DESC");
+$lista = $conexion->query('SELECT id, nombre, usuario, rol, activo, creado_en FROM usuarios ORDER BY id DESC');
 require_once __DIR__ . '/../includes/header.php';
 ?>
 <div class="grid">
@@ -66,7 +86,7 @@ require_once __DIR__ . '/../includes/header.php';
           <option value="viewer">viewer</option>
         </select>
       </div>
-      <div class="col-6"><label>Contraseña</label><input class="input" type="password" name="password" required></div>
+      <div class="col-6"><label>Contrasena</label><input class="input" type="password" name="password" minlength="8" required></div>
       <div class="col-12"><button class="btn" type="submit">Guardar</button></div>
     </form>
   </div>
@@ -76,27 +96,26 @@ require_once __DIR__ . '/../includes/header.php';
     <table class="table">
       <thead><tr><th>ID</th><th>Nombre</th><th>Usuario</th><th>Rol</th><th>Activo</th><th>Acciones</th></tr></thead>
       <tbody>
-      <?php while($u = $lista->fetch_assoc()): ?>
+      <?php while ($u = $lista->fetch_assoc()): ?>
         <tr>
-          <td><?= (int)$u['id'] ?></td>
+          <td><?= (int) $u['id'] ?></td>
           <td><?= h($u['nombre']) ?></td>
           <td><?= h($u['usuario']) ?></td>
           <td><span class="badge"><?= h($u['rol']) ?></span></td>
-          <td><?= (int)$u['activo']===1 ? 'Sí' : 'No' ?></td>
+          <td><?= db_bool($u['activo']) ? 'Si' : 'No' ?></td>
           <td class="row">
             <form method="post">
               <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
               <input type="hidden" name="accion" value="toggle">
-              <input type="hidden" name="id" value="<?= (int)$u['id'] ?>">
-              <button class="btn ghost" <?= (int)$u['id']===(int)$_SESSION['user']['id'] ? 'disabled' : '' ?>
-                data-confirm="¿Cambiar estado de este usuario?">Activar/Desactivar</button>
+              <input type="hidden" name="id" value="<?= (int) $u['id'] ?>">
+              <button class="btn ghost" <?= (int) $u['id'] === (int) ($_SESSION['user']['id'] ?? 0) ? 'disabled' : '' ?> data-confirm="Cambiar estado de este usuario?">Activar/Desactivar</button>
             </form>
 
             <form method="post" class="row">
               <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
               <input type="hidden" name="accion" value="reset">
-              <input type="hidden" name="id" value="<?= (int)$u['id'] ?>">
-              <input class="input" style="max-width:160px" name="newpass" placeholder="Nueva clave">
+              <input type="hidden" name="id" value="<?= (int) $u['id'] ?>">
+              <input class="input" style="max-width:160px" name="newpass" placeholder="Nueva clave" minlength="8">
               <button class="btn" type="submit">Reset</button>
             </form>
           </td>

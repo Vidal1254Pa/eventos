@@ -24,7 +24,7 @@ $area = trim($_POST['area']);
 $cargo = trim($_POST['cargo']);
 $deuda = $_POST['deuda'] ?? 'NO';
 
-$stmt = $conexion->prepare("INSERT INTO asistentes(dni,nombres,apellidos,mesa,area,cargo,deuda,activo) VALUES(?,?,?,?,?,?,?,1)");
+$stmt = $conexion->prepare("INSERT INTO asistentes(dni,nombres,apellidos,mesa,area,cargo,deuda,activo) VALUES(?,?,?,?,?,?,?,TRUE)");
 $stmt->bind_param("sssssss",$dni,$nombres,$apellidos,$mesa,$area,$cargo,$deuda);
 $stmt->execute();
 

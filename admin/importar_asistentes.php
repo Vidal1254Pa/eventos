@@ -6,71 +6,56 @@ require_login();
 require_role(['admin']);
 
 require_once __DIR__ . '/../libs/SimpleXLSX.php';
+
 use Shuchkin\SimpleXLSX;
 
 $mensaje = null;
 
-function clean_dni(string $v): string {
-    // Quita todo lo que no sea número (evita 7.12E+7, puntos, espacios, etc.)
-    $v = trim($v);
-    // Si viene como número en Excel, puede venir como "71228437" o "7.1228437E7"
-    // Mantener solo dígitos:
-    $digits = preg_replace('/\D+/', '', $v);
+function clean_dni(string $value): string
+{
+    $digits = preg_replace('/\D+/', '', trim($value));
     return $digits ?? '';
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excel'])) {
+    csrf_check();
 
     if (!isset($_FILES['excel']['tmp_name']) || $_FILES['excel']['error'] !== UPLOAD_ERR_OK) {
         $mensaje = ['err', 'Error al subir el archivo Excel.'];
+    } elseif (strtolower((string) pathinfo($_FILES['excel']['name'] ?? '', PATHINFO_EXTENSION)) !== 'xlsx') {
+        $mensaje = ['err', 'Solo se permiten archivos .xlsx.'];
+    } elseif ((int) ($_FILES['excel']['size'] ?? 0) > 5 * 1024 * 1024) {
+        $mensaje = ['err', 'El archivo supera el limite de 5 MB.'];
     } else {
-
         $xlsx = SimpleXLSX::parse($_FILES['excel']['tmp_name']);
 
         if (!$xlsx) {
-            $mensaje = ['err', 'Archivo Excel no válido o no se pudo leer.'];
+            $mensaje = ['err', 'Archivo Excel invalido o no se pudo leer.'];
         } else {
-
             $filas = $xlsx->rows();
             if (count($filas) < 2) {
-                $mensaje = ['err', 'El Excel no tiene filas para importar (mínimo 2: encabezado + datos).'];
+                $mensaje = ['err', 'El Excel no tiene filas para importar.'];
             } else {
-
-                // Validar encabezado (flexible, solo verifica que existan al menos 3 columnas)
-                $head = array_map('strtolower', array_map('trim', $filas[0]));
-                // Esperado: DNI | Nombres | Apellidos | Área | Cargo
-                // No obligamos el texto exacto, pero sí el orden de columnas.
-
                 $importados = 0;
                 $duplicados = 0;
-                $invalidos  = 0;
-
-                // Opcional: transacción para mejor rendimiento
+                $invalidos = 0;
                 $conexion->begin_transaction();
 
                 try {
                     for ($i = 1; $i < count($filas); $i++) {
+                        $dni = clean_dni((string) ($filas[$i][0] ?? ''));
+                        $nombres = trim((string) ($filas[$i][1] ?? ''));
+                        $apellidos = trim((string) ($filas[$i][2] ?? ''));
+                        $area = trim((string) ($filas[$i][3] ?? ''));
+                        $cargo = trim((string) ($filas[$i][4] ?? ''));
 
-                        $dni_raw   = (string)($filas[$i][0] ?? '');
-                        $dni       = clean_dni($dni_raw);
-
-                        $nombres   = trim((string)($filas[$i][1] ?? ''));
-                        $apellidos = trim((string)($filas[$i][2] ?? ''));
-                        $area      = trim((string)($filas[$i][3] ?? ''));
-                        $cargo     = trim((string)($filas[$i][4] ?? ''));
-
-                        // Validación mínima
                         if ($dni === '' || $nombres === '' || $apellidos === '') {
                             $invalidos++;
                             continue;
                         }
 
-                        // (Opcional) validar longitud DNI (8 en Perú). Si quieres estricto, descomenta:
-                        // if (strlen($dni) !== 8) { $invalidos++; continue; }
-
-                        // Verificar si ya existe
-                        $stmt = $conexion->prepare("SELECT id FROM asistentes WHERE dni=? LIMIT 1");
-                        $stmt->bind_param("s", $dni);
+                        $stmt = $conexion->prepare('SELECT id FROM asistentes WHERE dni = ? LIMIT 1');
+                        $stmt->bind_param('s', $dni);
                         $stmt->execute();
                         $stmt->store_result();
 
@@ -79,24 +64,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excel'])) {
                             continue;
                         }
 
-                        // Insertar
-                        $stmt = $conexion->prepare("
+                        $stmt = $conexion->prepare('
                             INSERT INTO asistentes (dni, nombres, apellidos, area, cargo, activo)
-                            VALUES (?, ?, ?, ?, ?, 1)
-                        ");
-                        $stmt->bind_param("sssss", $dni, $nombres, $apellidos, $area, $cargo);
+                            VALUES (?, ?, ?, ?, ?, TRUE)
+                        ');
+                        $stmt->bind_param('sssss', $dni, $nombres, $apellidos, $area, $cargo);
                         $stmt->execute();
 
                         $importados++;
                     }
 
                     $conexion->commit();
-
-                    $mensaje = ['ok', "Importación completa. Importados: $importados | Duplicados: $duplicados | Inválidos/Omitidos: $invalidos"];
-
+                    $mensaje = ['ok', "Importacion completa. Importados: $importados | Duplicados: $duplicados | Invalidos/Omitidos: $invalidos"];
                 } catch (Throwable $e) {
                     $conexion->rollback();
-                    $mensaje = ['err', "Error en importación: " . $e->getMessage()];
+                    $mensaje = ['err', 'Error en importacion: ' . $e->getMessage()];
                 }
             }
         }
@@ -117,6 +99,7 @@ require_once __DIR__ . '/../includes/header.php';
     <?php endif; ?>
 
     <form method="post" enctype="multipart/form-data">
+      <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
       <label>Archivo Excel (.xlsx)</label>
       <input class="input" type="file" name="excel" accept=".xlsx" required>
 
@@ -128,10 +111,10 @@ require_once __DIR__ . '/../includes/header.php';
 
     <hr>
 
-    <h4>Formato requerido (columnas en este orden)</h4>
-    <small class="badge">DNI | Nombres | Apellidos | Área | Cargo</small>
+    <h4>Formato requerido</h4>
+    <small class="badge">DNI | Nombres | Apellidos | Area | Cargo</small>
     <p style="margin-top:10px;color:#64748b">
-      Recomendación: en Excel pon la columna <b>DNI</b> como <b>Texto</b> para evitar formato científico.
+      Recomendacion: en Excel pon la columna <b>DNI</b> como <b>Texto</b> para evitar formato cientifico.
     </p>
   </div>
 </div>
