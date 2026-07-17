@@ -374,4 +374,26 @@ Limpiar
 
 </div>
 
+<script>
+(() => {
+  const storageKey = 'admin_asistentes_scroll_position';
+
+  window.addEventListener('load', () => {
+    const savedPosition = sessionStorage.getItem(storageKey);
+    if (!savedPosition) {
+      return;
+    }
+
+    sessionStorage.removeItem(storageKey);
+    window.scrollTo(0, Number(savedPosition));
+  });
+
+  document.querySelectorAll('form').forEach((form) => {
+    form.addEventListener('submit', () => {
+      sessionStorage.setItem(storageKey, String(window.scrollY));
+    });
+  });
+})();
+</script>
+
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
