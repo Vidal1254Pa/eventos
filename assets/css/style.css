@@ -1,0 +1,243 @@
+:root{
+  --bg:#f6f8fb; --card:#ffffff; --text:#0f172a; --muted:#64748b;
+  --pri:#2563eb; --pri2:#1d4ed8; --ok:#16a34a; --err:#dc2626; --border:#e2e8f0;
+}
+
+*{box-sizing:border-box}
+
+html,body{
+  height:100%;
+}
+
+body{
+  margin:0;
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial;
+  background:var(--bg);
+  color:var(--text);
+  display:flex;
+  flex-direction:column;
+  min-height:100vh;
+}
+
+/* ===== TOPBAR ===== */
+.topbar{
+  display:flex;
+  gap:16px;
+  align-items:center;
+  justify-content:space-between;
+  padding:14px;
+  background:var(--card);
+  border-bottom:1px solid var(--border);
+  position:sticky;
+  top:0;
+  z-index:10;
+}
+
+.brand{display:flex;gap:10px;align-items:center}
+
+.logo{
+  width:34px;height:34px;
+  display:grid;place-items:center;
+  border-radius:10px;
+  background:var(--pri);
+  color:#fff;font-weight:700
+}
+
+.title{font-weight:700}
+.subtitle{font-size:12px;color:var(--muted)}
+
+.nav{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+}
+
+.nav a{
+  text-decoration:none;
+  color:var(--text);
+  font-weight:600;
+  padding:8px 10px;
+  border-radius:10px;
+  font-size:14px;
+}
+
+.nav a:hover{background:#eef2ff;color:var(--pri2)}
+.nav a.danger:hover{background:#fee2e2;color:var(--err)}
+
+/* ===== CONTENIDO ===== */
+.container{
+  max-width:1100px;
+  margin:18px auto;
+  padding:0 14px;
+  flex:1;
+}
+
+/* ===== GRID LIMPIO ===== */
+.grid{
+  display:grid;
+  grid-template-columns:repeat(12,1fr);
+  gap:14px;
+}
+
+/* COLUMNAS */
+.col-12{grid-column:span 12}
+.col-6{grid-column:span 6}
+.col-5{grid-column:span 5}
+.col-7{grid-column:span 7}
+.col-4{grid-column:span 4}
+
+/* ===== CARD ===== */
+.card{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:16px;
+  box-shadow:0 8px 24px rgba(15,23,42,.05);
+  transition:all .2s ease;
+}
+
+.card:hover{
+  transform:translateY(-3px);
+}
+
+.card h2{
+  margin-bottom:10px;
+}
+
+/* KPI */
+.value{
+  font-size:28px;
+  font-weight:800;
+  margin-bottom:10px;
+}
+
+/* ===== BADGE ===== */
+.badge{
+  display:inline-block;
+  margin:4px 4px 0 0;
+  padding:4px 10px;
+  border-radius:999px;
+  font-size:12px;
+  border:1px solid var(--border);
+  color:var(--muted);
+}
+
+/* ===== TABLA ===== */
+.table{
+  width:100%;
+  border-collapse:collapse;
+  display:block;
+  overflow-x:auto;
+  white-space:nowrap;
+}
+
+.table th,.table td{
+  padding:10px;
+  border-bottom:1px solid var(--border);
+}
+
+/* ===== BOTONES ===== */
+.btn{
+  display:inline-block;
+  background:var(--pri);
+  color:#fff;
+  border:none;
+  border-radius:12px;
+  padding:10px;
+  font-weight:700;
+  text-decoration:none;
+  cursor:pointer;
+}
+
+.btn:hover{background:var(--pri2)}
+
+.row{display:flex;gap:10px;flex-wrap:wrap}
+
+/* ===== FORM ===== */
+.input, select{
+  width:100%;
+  padding:10px;
+  border-radius:12px;
+  border:1px solid var(--border);
+}
+
+.form{
+  display:grid;
+  grid-template-columns:repeat(12,1fr);
+  gap:12px;
+}
+
+/* ===== TOAST ===== */
+.toast{
+  position:fixed;
+  top:20px;
+  left:50%;
+  transform:translate(-50%, -20px);
+  padding:16px 22px;
+  font-size:16px;
+  font-weight:600;
+  border-radius:12px;
+  color:#fff;
+  min-width:280px;
+  text-align:center;
+  box-shadow:0 10px 25px rgba(0,0,0,.2);
+  z-index:9999;
+  opacity:0;
+  transition:all .3s ease;
+}
+
+.toast.show{
+  opacity:1;
+  transform:translate(-50%, 0);
+}
+
+.toast.ok{ background:#16a34a }
+.toast.err{ background:#dc2626 }
+
+/* ===== FOOTER ===== */
+.footer{
+  width:100%;
+  text-align:center;
+  padding:15px;
+  color:#64748b;
+  background:#fff;
+  border-top:1px solid #e2e8f0;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width:768px){
+
+  .grid{
+    grid-template-columns:1fr;
+  }
+
+  .col-4,
+  .col-5,
+  .col-6,
+  .col-7,
+  .col-12{
+    grid-column:span 12;
+  }
+
+  .topbar{
+    flex-direction:column;
+    align-items:flex-start;
+  }
+
+  .nav{
+    width:100%;
+  }
+
+  .nav a{
+    flex:1;
+    text-align:center;
+  }
+
+  .btn{
+    width:100%;
+  }
+
+  .form{
+    grid-template-columns:1fr;
+  }
+}
