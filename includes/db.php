@@ -115,7 +115,7 @@ final class DbConnection
     public function prepare(string $sql): DbStatement
     {
         try {
-            $statement = $this->pdo->prepare(transform_placeholders($sql));
+            $statement = $this->pdo->prepare($sql);
             if (!$statement instanceof PDOStatement) {
                 throw new RuntimeException('No se pudo preparar la consulta.');
             }
@@ -129,7 +129,7 @@ final class DbConnection
     public function query(string $sql): DbResult
     {
         try {
-            $statement = $this->pdo->query(transform_placeholders($sql));
+            $statement = $this->pdo->query($sql);
             if (!$statement instanceof PDOStatement) {
                 return new DbResult([]);
             }
@@ -195,40 +195,6 @@ function build_dsn(): string
         DB_NAME,
         DB_SSLMODE
     );
-}
-
-function transform_placeholders(string $sql): string
-{
-    $result = '';
-    $index = 1;
-    $inSingle = false;
-    $inDouble = false;
-    $length = strlen($sql);
-
-    for ($i = 0; $i < $length; $i++) {
-        $char = $sql[$i];
-
-        if ($char === "'" && !$inDouble) {
-            $escaped = $i > 0 && $sql[$i - 1] === '\\';
-            if (!$escaped) {
-                $inSingle = !$inSingle;
-            }
-        } elseif ($char === '"' && !$inSingle) {
-            $escaped = $i > 0 && $sql[$i - 1] === '\\';
-            if (!$escaped) {
-                $inDouble = !$inDouble;
-            }
-        }
-
-        if ($char === '?' && !$inSingle && !$inDouble) {
-            $result .= '$' . $index++;
-            continue;
-        }
-
-        $result .= $char;
-    }
-
-    return $result;
 }
 
 function db_exception_from_pdo(PDOException $e): DbException
